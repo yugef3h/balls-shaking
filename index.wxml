@@ -1,0 +1,294 @@
+<block>
+    <block wx:if="{{$taroCompReady}}">
+        <view class="page">
+            <nav-bar compid="{{$compid__1134}}"></nav-bar>
+            <scroll-view bindscroll="handlePageScroll" class="page-wrapper" scrollY="{{true}}">
+                <block>
+                    <block wx:if="{{info}}">
+                        <view class="header">
+                            <view class="page-title">
+                                <view class="page-title-text">
+                                    <block>
+                                        <block wx:if="{{info.activity_text&&info.activity_text.length}}">
+                                            <view>{{info.activity_text[0]}}</view>
+                                            <view>{{info.activity_text[1]}}</view>
+                                        </block>
+                                    </block>
+                                </view>
+                            </view>
+                            <view bindtap="showMyRuleToast" class="rule-entry-wrapper" data-e-tap-a-a="{{1}}" data-e-tap-so="this"></view>
+                        </view>
+                        <view class="extra-panel"></view>
+                        <view class="{{'main-wrapper '+(info.button_flag?'':'no-switch')}}">
+                            <view class="main-info">
+                                <view>
+                                    <view class="discount-title">共有奖券</view>
+                                    <view class="total-num">
+                                        <view class="num-text num">{{info.total_count}}</view>
+                                        <view class="unit">张</view>
+                                    </view>
+                                </view>
+                                <view class="num-panel-wrapper">
+                                    <view class="num-panel-text">
+                                        <view>还</view>
+                                        <view>剩</view>
+                                    </view>
+                                    <view class="num-panel num">
+                                        <num-swipe compid="{{$compid__1135}}"></num-swipe>
+                                    </view>
+                                </view>
+                            </view>
+                            <block>
+                                <block wx:if="{{info.live_status==1||info.live_status==2}}">
+                                    <navigator bindtap="viewLivePlayerClick" class="{{'live-entry '+(showLiveEntry?'':'hide')}}" hoverClass="none" url="{{info.room_id?'/packages/livePlayer/index?room_id='+info.room_id:''}}">
+                                        <view class="live-entry-title">
+                                            <block>
+                                                <block wx:if="{{info.live_status==2}}">直播开奖中</block>
+                                                <block wx:else>
+                                                    <block>
+                                                        <block wx:if="{{info.live_status==1}}">
+                                                            等待直播开奖
+                                                        </block>
+                                                    </block>
+                                                </block>
+                                            </block>
+                                        </view>
+                                    </navigator>
+                                </block>
+                            </block>
+                            <view class="egg-wrapper">
+                                <block>
+                                    <block wx:if="{{info.status<4}}">
+                                        <view class="jackpot">
+                                            <view class="{{'egg-list machine-'+machineStatus}}">
+                                                <view class="line-1">
+                                                    <view class="egg">
+                                                        <view></view>
+                                                    </view>
+                                                    <view class="egg">
+                                                        <view></view>
+                                                    </view>
+                                                    <view class="egg">
+                                                        <view></view>
+                                                    </view>
+                                                    <view class="egg">
+                                                        <view></view>
+                                                    </view>
+                                                </view>
+                                                <view class="line-2-container">
+                                                    <view class="line-2">
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                    </view>
+                                                    <view class="line-3">
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                        <view class="egg">
+                                                            <view></view>
+                                                        </view>
+                                                    </view>
+                                                </view>
+                                            </view>
+                                        </view>
+                                    </block>
+                                    <block wx:else>
+                                        <view class="prize-result-wrapper">
+                                            <prize-result compid="{{$compid__1136}}"></prize-result>
+                                        </view>
+                                    </block>
+                                </block>
+                                <block>
+                                    <block wx:if="{{info.session>1}}">
+                                        <navigator bindtap="viewHistoryClick" hoverClass="none" url="/packages/livePrize/history/index">
+                                            <view class="history-entry"></view>
+                                        </navigator>
+                                    </block>
+                                </block>
+                            </view>
+                            <view class="panel-wrapper">
+                                <view class="panel-items-wrapper">
+                                    <view class="result-wrapper">
+                                        <view class="{{'egg egg-result '+(eggResultStatus=='show'?'egg-show':'')}}">
+                                            <view></view>
+                                        </view>
+                                    </view>
+                                    <block>
+                                        <block wx:if="{{info.button_flag}}">
+                                            <view class="switch-wrapper">
+                                                <block>
+                                                    <block wx:if="{{info.button_notice_text}}">
+                                                        <view bindtap="toggleInfoToast" class="switch-tips" data-e-tap-a-a="{{1}}" data-e-tap-so="this">
+                                                            <view>{{info.button_notice_text}}</view>
+                                                        </view>
+                                                    </block>
+                                                </block>
+                                                <block>
+                                                    <block wx:if="{{info.join_flag}}">
+                                                        <view bindtap="startMachine" class="{{'my-switch switch-'+switchStatus}}"></view>
+                                                        <block>
+                                                            <block wx:if="{{!machineLock}}">
+                                                                <view class="hand-pointer pointer-animation"></view>
+                                                            </block>
+                                                        </block>
+                                                    </block>
+                                                    <block wx:else>
+                                                        <view class="my-switch"></view>
+                                                    </block>
+                                                </block>
+                                            </view>
+                                        </block>
+                                        <block wx:else>
+                                            <block>
+                                                <block wx:if="{{info.button_error_text&&info.button_error_text.length}}">
+                                                    <view class="switch-text-wrapper">
+                                                        <view>
+                                                            <view class="switch-text text-1">
+                                                                {{info.button_error_text[0]}}
+                                                            </view>
+                                                            <view class="switch-text text-2">
+                                                                {{info.button_error_text[1]}}
+                                                            </view>
+                                                        </view>
+                                                    </view>
+                                                </block>
+                                            </block>
+                                        </block>
+                                    </block>
+                                </view>
+                                <block>
+                                    <block wx:if="{{!info.button_flag&&info.live_status==2}}">
+                                        <view class="panel-tips">直播间开奖中</view>
+                                    </block>
+                                    <block wx:else>
+                                        <block>
+                                            <block wx:if="{{info.status==4}}">
+                                                <view class="panel-tips">
+                                                    <block>
+                                                        <block wx:if="{{timeStr}}">
+                                                            距离下期开始：{{timeStr}}
+                                                        </block>
+                                                    </block>
+                                                </view>
+                                            </block>
+                                            <block wx:else>
+                                                <block>
+                                                    <block wx:if="{{info.status==2&&info.button_flag}}">
+                                                        <view class="panel-tips">
+                                                            <block>
+                                                                <block wx:if="{{timeStr}}">
+                                                                    距离兑奖截止：{{timeStr}}
+                                                                </block>
+                                                            </block>
+                                                        </view>
+                                                    </block>
+                                                </block>
+                                            </block>
+                                        </block>
+                                    </block>
+                                </block>
+                            </view>
+                        </view>
+                        <view class="my-discount-wrapper">
+                            <view class="my-discount-title"></view>
+                            <view class="discount-list-wrapper">
+                                <block>
+                                    <block wx:if="{{!codeList.length}}">
+                                        <view class="discount-list empty-list clearfix">
+                                            <view class="empty-icon"></view>
+                                            <view class="empty-text">您还没有奖券～快去下单兑奖吧～</view>
+                                        </view>
+                                    </block>
+                                    <block wx:else>
+                                        <view class="discount-list clearfix">
+                                            <block wx:for="{{codeList}}">
+                                                <view class="{{'egg-item '+(item.is_winner==1||info.status!=4?'prize':'')}}">
+                                                    <view class="egg"></view>
+                                                    <block>
+                                                        <block wx:if="{{item.is_winner==1&&info.status==4}}">
+                                                            <view class="prize-tag">中奖咯</view>
+                                                        </block>
+                                                    </block>
+                                                    <view class="code-text num">{{item.code}}</view>
+                                                </view>
+                                            </block>
+                                        </view>
+                                    </block>
+                                </block>
+                            </view>
+                            <view class="discount-list-footer"></view>
+                        </view>
+                    </block>
+                </block>
+            </scroll-view>
+            <toast compid="{{$compid__1137}}">
+                <view class="code-toast-content">
+                    <view class="code-num-panel">
+                        <view class="code-title">旅购直播间开奖 周五晚19:30</view>
+                        <block>
+                            <block wx:if="{{codeArray.length}}">
+                                <view class="{{'num-panel len'+codeArray.length}}">
+                                    <block wx:for="{{codeArray}}">
+                                        <view>{{item}}</view>
+                                    </block>
+                                </view>
+                            </block>
+                        </block>
+                    </view>
+                    <view bindtap="goToLiveRoom" class="code-close-btn" data-e-tap-so="this">
+                        前往开奖
+                    </view>
+                </view>
+            </toast>
+            <toast compid="{{$compid__1138}}">
+                <view class="rule-content">
+                    <block>
+                        <block wx:if="{{info.activity_desc&&info.activity_desc.length}}">
+                            <scroll-view scrollY="{{true}}" style="max-height: 660rpx">
+                                <block wx:for="{{info.activity_desc}}" wx:key="index">
+                                    <view>
+                                        <rich-text nodes="{{item}}"></rich-text>
+                                    </view>
+                                </block>
+                            </scroll-view>
+                        </block>
+                    </block>
+                </view>
+            </toast>
+            <info-toast compid="{{$compid__1139}}">
+                <view class="info-content">
+                    <block>
+                        <block wx:if="{{info.button_help_text&&info.button_help_text.length}}">
+                            <scroll-view scrollY="{{true}}" style="max-height: 660rpx">
+                                <block wx:for="{{info.button_help_text}}" wx:key="index">
+                                    <view>
+                                        <rich-text nodes="{{item}}"></rich-text>
+                                    </view>
+                                </block>
+                            </scroll-view>
+                        </block>
+                    </block>
+                </view>
+            </info-toast>
+        </view>
+    </block>
+</block>
