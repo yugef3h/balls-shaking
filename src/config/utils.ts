@@ -204,47 +204,47 @@ export const exchangeRelativeVelocity = (
   anotherBall.vy += dp * ny
 }
 
-export const updateCanvasSize = (tagName: string, globalOptions: any) => {
-  let canvas: HTMLCanvasElement | null = getCanvasElementById(tagName),
-    ctx: CanvasRenderingContext2D | null = getCanvasRenderingContext2D(canvas)
-  const width = canvas.width,
-    height = canvas.height
-  ctx.clearRect(0, 0, width, height)
-  if (document.body.clientWidth < 760) {
-    const sizeWidth = (window.innerWidth * width) / 750
-    const sizeHeight = (window.innerWidth * height) / 750
-    canvas.width = sizeWidth
-    canvas.height = sizeHeight
-    canvas.style.width = `${sizeWidth}px`
-    canvas.style.height = `${sizeHeight}px`
-    globalOptions[0] = globalOptions[0] / 1.5
-  }
-  switch (tagName) {
-    case 'egg-wrapper':
-      globalOptions[1] = width
-      globalOptions[2] = height
-      break
-    case 'result-window':
-      globalOptions[3] = width
-      globalOptions[4] = height
-
-      break
-    default:
-      break
-  }
-  canvas = ctx = null
+export const updateCanvasSize = (tagName: string[], globalOptions: any) => {
+  const clientWidth = document.body.clientWidth
+  tagName.forEach(tag => {
+    let canvas: HTMLCanvasElement | null = getCanvasElementById(tag),
+      ctx: CanvasRenderingContext2D | null = getCanvasRenderingContext2D(canvas)
+    const width = canvas.width,
+      height = canvas.height
+    ctx.clearRect(0, 0, width, height)
+    if (clientWidth < 760) {
+      const sizeWidth = (window.innerWidth * width) / 750
+      const sizeHeight = (window.innerWidth * height) / 750
+      canvas.width = sizeWidth
+      canvas.height = sizeHeight
+      canvas.style.width = `${sizeWidth}px`
+      canvas.style.height = `${sizeHeight}px`
+    }
+    switch (tag) {
+      case 'egg-wrapper':
+        globalOptions[1] = width
+        globalOptions[2] = height
+        break
+      case 'result-window':
+        globalOptions[3] = width
+        globalOptions[4] = height
+        break
+      default:
+        break
+    }
+    canvas = ctx = null
+  })
+  if (clientWidth < 760) globalOptions[0] = Math.floor(globalOptions[0] / 1.5)
 }
 
-export const updateCanvasRender = debounce((globalOptions): void => {
-  updateCanvasSize('egg-wrapper', globalOptions)
-  updateCanvasSize('result-window', globalOptions)
-}, 1000)
+export const updateCanvasRender = (globalOptions: any): void => {
+  updateCanvasSize(['egg-wrapper', 'result-window'], globalOptions)
+}
 
 export const initCanvasSize = (globalOptions: any): Promise<boolean> => {
   return new Promise(resolve => {
     setTimeout(() => {
-      updateCanvasSize('egg-wrapper', globalOptions)
-      updateCanvasSize('result-window', globalOptions)
+      updateCanvasSize(['egg-wrapper', 'result-window'], globalOptions)
       resolve(true)
     }, 100)
   })

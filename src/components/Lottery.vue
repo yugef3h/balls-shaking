@@ -42,7 +42,15 @@
 
 <script lang="ts">
 /** @type {HTMLCanvasElement} */
-import { defineComponent, onMounted, onBeforeUnmount, ref, reactive } from 'vue'
+import {
+  defineComponent,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  reactive,
+  watchEffect
+} from 'vue'
+import { debounce } from 'lodash'
 import {
   getCanvasElementById,
   getCanvasRenderingContext2D,
@@ -68,6 +76,7 @@ export default defineComponent({
     const shakeId = ref<number>(0)
     const bounceId = ref<number>(0)
     const rotateId = ref<number>(0)
+
     const o: {
       canvas: HTMLCanvasElement | null
       ctx: CanvasRenderingContext2D | null
@@ -83,14 +92,21 @@ export default defineComponent({
      * arr[3] canvas#result-window 画布宽
      * arr[4] canvas#result-window 画布高
      */
-    const globalOptions = reactive<number[]>([40, 500, 320, 190, 110])
-    const imgData = reactive({
-      egg1,
-      egg2,
-      egg3,
-      egg4,
-      winEgg: null
-    })
+    const globalOptions = reactive<number[]>([40, 500, 320, 190, 110]),
+      shakingOptions = reactive({
+        ballCount: 8,
+        ballRadius: globalOptions[0],
+        type: 1,
+        speed: 4,
+        tagName: 'egg-wrapper'
+      }),
+      imgData = reactive({
+        egg1,
+        egg2,
+        egg3,
+        egg4,
+        winEgg: null
+      })
 
     // 摇摇乐 canvas main 主函数
     function shakingAnim({
@@ -186,23 +202,18 @@ export default defineComponent({
      * 当然假如 type = 1 非碰撞模式时，影响可以忽略
      */
     function start() {
-      setTimeout(() => {
-        const shakingOptions = {
-          ballCount: 8,
-          ballRadius: globalOptions[0],
-          type: 1,
-          speed: 4,
-          tagName: 'egg-wrapper'
-        }
-        shakingAnim(shakingOptions)
-      }, 500)
+      shakingAnim(shakingOptions)
     }
 
-    function changeCanvasSize() {
-      stopAnim(shakeId.value)
-      stopAnim(bounceId.value)
+    const changeCanvasSize = debounce(() => {
       updateCanvasRender(globalOptions)
-    }
+      if (shakeId.value) {
+        stopAnim(shakeId.value)
+        // 恢复
+        // shakingAnim(shakingOptions)
+      }
+      if (bounceId.value) stopAnim(bounceId.value)
+    }, 1000)
 
     onMounted(async () => {
       userSelectDisable()
@@ -221,11 +232,16 @@ export default defineComponent({
     onBeforeUnmount(() => {
       window.removeEventListener('resize', changeCanvasSize)
     })
+
+    watchEffect(() => {
+      shakingOptions.ballRadius = globalOptions[0]
+    })
     return {
       imgData,
       handleLoad,
       bounceId,
-      globalOptions
+      globalOptions,
+      shakingOptions
     }
   }
 })
@@ -385,9 +401,9 @@ article {
     left: calc(100vw * 112 / 750);
   }
   .title {
-    margin-top: calc(100vw * 30 / 750);
-    font-size: 12px;
-    padding: 4px 15px;
+    margin-top: calc(100vw * 28 / 750);
+    font-size: 18px;
+    padding: 0 12px;
     border-radius: calc(100vw * 22 / 750);
   }
   .page-title {
