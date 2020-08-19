@@ -262,7 +262,7 @@ export const updateCanvasSize = (
     }
     canvas = ctx = null
   })
-  if (clientWidth < 760) globalOptions[0] = Math.floor(globalOptions[0] / 1.5)
+  if (clientWidth < 480) globalOptions[0] = Math.floor(globalOptions[0] / 1.5)
 }
 
 export const updateCanvasRender = (globalOptions: number[]): void => {

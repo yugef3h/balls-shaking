@@ -82,7 +82,7 @@ export default defineComponent({
      * arr[3] canvas#result-window 画布宽
      * arr[4] canvas#result-window 画布高
      */
-    const globalOptions = reactive<number[]>([40, 500, 320, 190, 110]),
+    const globalOptions = reactive<number[]>([25, 500, 320, 190, 110]),
       /**
        * 参数说明：
        * 因为 canvas 的空间有限，假若 ballCount 和 ballRadius 数值都很大
@@ -93,7 +93,7 @@ export default defineComponent({
       shakingOptions = reactive({
         ballCount: 15,
         ballRadius: globalOptions[0],
-        type: 1,
+        type: 2,
         speed: 4,
         tagName: 'egg-wrapper'
       }),
