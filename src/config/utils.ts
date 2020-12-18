@@ -116,18 +116,30 @@ export interface BallObject {
   type?: string | number
 }
 
-// 创建并过滤位置有误的小球，比如两个黏在一起的，属于碰撞模式优化...
-export const createBalls = (
-  balls: Ball[],
-  ballCount: number,
-  ballRadius: number,
-  ballColor: string,
-  cvw: number,
-  cvh: number,
-  speed: number,
-  _collideBool: boolean,
+export interface BallsObject {
+  balls: Ball[]
+  ballCount: number
+  ballRadius: number
+  ballColor: string
+  cvw: number
+  cvh: number
+  speed: number
+  _collideBool: boolean
   nodeList: Element[]
-) => {
+}
+
+// 创建并过滤位置有误的小球，比如两个黏在一起的，属于碰撞模式优化...
+export const createBalls = ({
+  balls,
+  ballCount,
+  ballRadius,
+  ballColor,
+  cvw,
+  cvh,
+  speed,
+  _collideBool,
+  nodeList
+}: BallsObject) => {
   let _ball, intersect
   while (balls.length < ballCount) {
     const x = xRandomInt(ballRadius, cvw - ballRadius)
@@ -152,10 +164,52 @@ export const createBalls = (
   }
 }
 
+export interface LoopObject {
+  ctx: CanvasRenderingContext2D
+  cvw: number
+  cvh: number
+  balls: Ball[]
+  _collideBool: boolean
+  nodeList: Element[]
+  shakeId: number
+}
+export const exchangeVelocity = (ball: Ball, anotherBall: Ball) => {
+  const c1VelocityX = ball.vx
+  const c1VelocityY = ball.vy
+  const c2VelocityX = anotherBall.vx
+  const c2VelocityY = anotherBall.vy
+  ball.vx = c2VelocityX
+  ball.vy = c2VelocityY
+  anotherBall.vx = c1VelocityX
+  anotherBall.vy = c1VelocityY
+}
+
+export const exchangeRelativeVelocity = (
+  ball: Ball,
+  anotherBall: Ball,
+  distance: number
+) => {
+  // 计算法线单位向量
+  const nx = (ball.x - anotherBall.x) / distance,
+    ny = (ball.y - anotherBall.y) / distance
+  // 相对速度
+  const dvx = ball.vx - anotherBall.vx,
+    dvy = ball.vy - anotherBall.vy
+  // 相对速度与法线的点积
+  const dp = nx * dvx + ny * dvy
+  // 更新碰撞后的速度
+  ball.vx -= dp * nx
+  ball.vy -= dp * ny
+  anotherBall.vx += dp * nx
+  anotherBall.vy += dp * ny
+}
+
 export const updateCanvasSize = (tagName: string, globalOptions: any) => {
-  let canvas: HTMLCanvasElement | null = getCanvasElementById(tagName)
+  let canvas: HTMLCanvasElement | null = getCanvasElementById(tagName),
+    ctx: CanvasRenderingContext2D | null = getCanvasRenderingContext2D(canvas)
   const width = canvas.width,
     height = canvas.height
+  ctx.clearRect(0, 0, width, height)
   if (document.body.clientWidth < 760) {
     const sizeWidth = (window.innerWidth * width) / 750
     const sizeHeight = (window.innerWidth * height) / 750
@@ -163,6 +217,7 @@ export const updateCanvasSize = (tagName: string, globalOptions: any) => {
     canvas.height = sizeHeight
     canvas.style.width = `${sizeWidth}px`
     canvas.style.height = `${sizeHeight}px`
+    globalOptions[0] = globalOptions[0] / 1.5
   }
   switch (tagName) {
     case 'egg-wrapper':
@@ -172,11 +227,12 @@ export const updateCanvasSize = (tagName: string, globalOptions: any) => {
     case 'result-window':
       globalOptions[3] = width
       globalOptions[4] = height
+
       break
     default:
       break
   }
-  canvas = null
+  canvas = ctx = null
 }
 
 export const updateCanvasRender = debounce((globalOptions): void => {
@@ -387,14 +443,21 @@ export const bouncingAnim = (bounceId: number) => {
   img.src = require(`@/assets/egg-1.png`)
 }
 
-export const eggLoadedBouncingAnim = (
-  event: Event,
-  tagName: string,
-  bounceId: number,
+export interface BounceObj {
+  event: Event
+  tagName: string
+  bounceId: number
   radius: number
-) => {
-  const canvas: HTMLCanvasElement = getCanvasElementById(tagName),
-    ctx: CanvasRenderingContext2D = getCanvasRenderingContext2D(canvas)
+}
+
+export const eggLoadedBouncingAnim = ({
+  event,
+  tagName,
+  bounceId,
+  radius
+}: BounceObj) => {
+  let canvas: HTMLCanvasElement | null = getCanvasElementById(tagName),
+    ctx: CanvasRenderingContext2D | null = getCanvasRenderingContext2D(canvas)
   const img = event.target as CanvasImageSource
   const W = canvas.width,
     H = canvas.height,
@@ -409,6 +472,7 @@ export const eggLoadedBouncingAnim = (
       draw: drawCircle
     }
   function update() {
+    if (!ctx) return
     ctx.clearRect(0, 0, W, H)
     ball.draw(ctx, ball.x, ball.y, radius, 'rgba(0,0,0,0)')
     img &&
@@ -429,38 +493,38 @@ export const eggLoadedBouncingAnim = (
       }
     }
     bounceId = requestAnimationFrame(update)
-    if (ball.vy === 0) cancelAnimationFrame(bounceId)
+    if (ball.vy === 0) {
+      cancelAnimationFrame(bounceId)
+      canvas = ctx = null
+    }
   }
   update()
 }
 
-export const exchangeVelocity = (ball: Ball, anotherBall: Ball) => {
-  const c1VelocityX = ball.vx
-  const c1VelocityY = ball.vy
-  const c2VelocityX = anotherBall.vx
-  const c2VelocityY = anotherBall.vy
-  ball.vx = c2VelocityX
-  ball.vy = c2VelocityY
-  anotherBall.vx = c1VelocityX
-  anotherBall.vy = c1VelocityY
+export const userSelectDisable = () => {
+  document.oncontextmenu = function(e) {
+    e.preventDefault()
+  }
 }
 
-export const exchangeRelativeVelocity = (
-  ball: Ball,
-  anotherBall: Ball,
-  distance: number
-) => {
-  // 计算法线单位向量
-  const nx = (ball.x - anotherBall.x) / distance,
-    ny = (ball.y - anotherBall.y) / distance
-  // 相对速度
-  const dvx = ball.vx - anotherBall.vx,
-    dvy = ball.vy - anotherBall.vy
-  // 相对速度与法线的点积
-  const dp = nx * dvx + ny * dvy
-  // 更新碰撞后的速度
-  ball.vx -= dp * nx
-  ball.vy -= dp * ny
-  anotherBall.vx += dp * nx
-  anotherBall.vy += dp * ny
+export const stopAnim = (id: number) => {
+  cancelAnimationFrame(id)
+}
+
+export interface RenderObj {
+  ctx: CanvasRenderingContext2D
+  cvw: number
+  cvh: number
+  ball: Ball
+  nodeList: Element[]
+}
+
+export const ballRender = ({ ctx, cvw, cvh, ball, nodeList }: RenderObj) => {
+  const radius = ball.radius
+  drawCircle(ctx, ball.x, ball.y, radius, ball.color)
+  const img = nodeList[ball.bgIndex] as HTMLCanvasElement
+  ctx.drawImage(img, ball.x - radius, ball.y - radius, radius * 2, radius * 2)
+  ball.x += ball.vx
+  ball.y += ball.vy
+  ball.update(cvw, cvh)
 }

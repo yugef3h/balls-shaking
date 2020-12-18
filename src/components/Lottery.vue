@@ -28,15 +28,15 @@
         <div class="panel-wrapper-content"></div>
         <div class="panel-wrapper-footer"></div>
       </article>
-      <img
-        :class="`egg ${index}`"
-        v-for="(item, index) in imgData"
-        :key="item"
-        :src="item"
-        :alt="index"
-        @load="handleLoad($event, bounceId, index)"
-      />
     </footer>
+    <img
+      :class="`egg ${index}`"
+      v-for="(item, index) in imgData"
+      :key="item"
+      :src="item"
+      :alt="index"
+      @load="handleLoad($event, bounceId, index)"
+    />
   </div>
 </template>
 
@@ -47,9 +47,7 @@ import {
   getCanvasElementById,
   getCanvasRenderingContext2D,
   Ball,
-  drawCircle,
   requestAnimationFrame,
-  cancelAnimationFrame,
   dist,
   BallObject,
   updateCanvasRender,
@@ -58,7 +56,10 @@ import {
   exchangeRelativeVelocity,
   createBalls,
   getImgList,
-  initCanvasSize
+  initCanvasSize,
+  userSelectDisable,
+  stopAnim,
+  ballRender
 } from '@/config/utils.ts'
 import { egg1, egg2, egg3, egg4 } from '@/config/imgData'
 import { handleTryCatch } from '@/config/error'
@@ -67,6 +68,14 @@ export default defineComponent({
     const shakeId = ref<number>(0)
     const bounceId = ref<number>(0)
     const rotateId = ref<number>(0)
+    const o: {
+      canvas: HTMLCanvasElement | null
+      ctx: CanvasRenderingContext2D | null
+    } = reactive({
+      canvas: null,
+      ctx: null
+    })
+    const balls = reactive<Ball[]>([])
     /**
      * arr[0] 小球半径
      * arr[1] canvas#egg-wrapper 画布宽
@@ -90,20 +99,19 @@ export default defineComponent({
       ballRadius = 44,
       ballCount
     }: BallObject) {
+      o.canvas = getCanvasElementById('egg-wrapper')
+      o.ctx = getCanvasRenderingContext2D(o.canvas)
       if (speed <= 4) speed = 4
       speed = 1
-      const balls: Ball[] = [],
-        ballColor = 'rgba(0,0,0,0)',
-        canvas: HTMLCanvasElement = getCanvasElementById('egg-wrapper'),
-        ctx: CanvasRenderingContext2D = getCanvasRenderingContext2D(canvas),
-        cvw = canvas.width,
-        cvh = canvas.height,
+      const ballColor = 'rgba(0,0,0,0)',
+        cvw = o.canvas.width,
+        cvh = o.canvas.height,
         _collideBool = type === 'collide' || type === 2,
         nodeList = getImgList(imgData)
 
       // 创建并过滤位置有误的小球，比如两个黏在一起的，属于碰撞模式优化...
-      // 有时间优化：控制小球颜色的个数
-      createBalls(
+      // 有时间优化：可配置具体颜色的个数
+      createBalls({
         balls,
         ballCount,
         ballRadius,
@@ -113,10 +121,10 @@ export default defineComponent({
         speed,
         _collideBool,
         nodeList
-      )
+      })
 
       function loop() {
-        ctx.clearRect(0, 0, cvw, cvh)
+        o.ctx && o.ctx.clearRect(0, 0, cvw, cvh)
         for (let i = 0; i < balls.length; i++) {
           const ball = balls[i],
             radius = ball.radius
@@ -136,18 +144,8 @@ export default defineComponent({
           }
           // 这里有时间优化，假如有重叠的话可以不绘制，反正你看不出来...
           // 另外：例如 stroke()、fill、drawImage 等 API 尽量不要分次绘制。
-          drawCircle(ctx, ball.x, ball.y, radius, ball.color)
-          const img = nodeList[ball.bgIndex] as HTMLCanvasElement
-          ctx.drawImage(
-            img,
-            ball.x - radius,
-            ball.y - radius,
-            radius * 2,
-            radius * 2
-          )
-          ball.x += ball.vx
-          ball.y += ball.vy
-          ball.update(cvw, cvh)
+
+          o.ctx && ballRender({ ctx: o.ctx, cvw, cvh, ball, nodeList })
         }
         shakeId.value = requestAnimationFrame(loop)
       }
@@ -160,18 +158,25 @@ export default defineComponent({
     function handleLoad(event: Event, bounceId: number, index: string) {
       if (index === 'winEgg')
         // result-window
-        eggLoadedBouncingAnim(
+        eggLoadedBouncingAnim({
           event,
-          'result-window',
+          tagName: 'result-window',
           bounceId,
-          globalOptions[0]
-        )
+          radius: globalOptions[0]
+        })
     }
-    // 结束摇摇乐动画
-    function stop() {
-      // 落到原处
-      cancelAnimationFrame(shakeId.value)
-      imgData.winEgg = imgData.egg1
+
+    function getResult(id: number) {
+      // 停止动画
+      stopAnim(id)
+      o.ctx &&
+        o.canvas &&
+        o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height)
+      o.canvas = o.ctx = null
+      imgData.winEgg = null
+      setTimeout(() => {
+        imgData.winEgg = imgData.egg1
+      })
     }
     /**
      * 说明：
@@ -186,17 +191,21 @@ export default defineComponent({
           ballCount: 8,
           ballRadius: globalOptions[0],
           type: 1,
-          speed: 4
+          speed: 4,
+          tagName: 'egg-wrapper'
         }
         shakingAnim(shakingOptions)
       }, 500)
     }
 
     function changeCanvasSize() {
+      stopAnim(shakeId.value)
+      stopAnim(bounceId.value)
       updateCanvasRender(globalOptions)
     }
 
     onMounted(async () => {
+      userSelectDisable()
       const [err] = await handleTryCatch(initCanvasSize)(globalOptions)
       if (err) return console.log(err, 'err')
       start()
@@ -205,7 +214,7 @@ export default defineComponent({
         tagName: '.switch',
         rotateId: rotateId.value,
         // 归位后回调
-        callback: stop
+        callback: () => getResult(shakeId.value)
       })
     })
 
@@ -236,20 +245,30 @@ export default defineComponent({
 }
 </style>
 <style>
+:root {
+  --maxw: 750px;
+  --minw: 320px;
+}
 .lottery {
   width: 100%;
-  min-width: 320px;
+  min-width: var(--minw);
   color: #fff;
   height: 100vh;
   margin: 0 auto;
   overflow-y: auto;
+  -webkit-touch-callout: none; /*系统默认菜单被禁用*/
+  -webkit-user-select: none; /*webkit浏览器*/
+  -khtml-user-select: none; /*早起浏览器*/
+  -moz-user-select: none; /*火狐浏览器*/
+  -ms-user-select: none; /*IE浏览器*/
+  user-select: none; /*用户是否能够选中文本*/
 }
 header,
 main,
 footer {
   display: flex;
   justify-content: center;
-  min-width: 320px;
+  min-width: var(--minw);
 }
 header {
   margin-top: 45px;
@@ -260,7 +279,7 @@ main {
 .page-title {
   position: relative;
   width: 100%;
-  max-width: 750px;
+  max-width: var(--maxw);
   height: 220px;
   background-image: url('~@/assets/page-title.png');
   background-repeat: no-repeat;
@@ -282,7 +301,7 @@ main {
 .main-wrapper {
   position: relative;
   width: 100%;
-  max-width: 750px;
+  max-width: var(--maxw);
   height: 882px;
   background-image: url('~@/assets/main-machine.png');
   background-repeat: no-repeat;
@@ -319,11 +338,11 @@ main {
 }
 article {
   width: 100%;
-  max-width: 750px;
+  max-width: var(--maxw);
 }
 .panel-wrapper-header {
   width: 100%;
-  max-width: 750px;
+  max-width: var(--maxw);
   height: 190px;
   background-image: url('~@/assets/prize-detail-header-bg.png');
   background-repeat: no-repeat;
@@ -332,7 +351,7 @@ article {
 }
 .panel-wrapper-content {
   width: 100%;
-  max-width: 750px;
+  max-width: var(--maxw);
   height: 240px;
   background-image: url('~@/assets/discount-content-bg.png');
   background-repeat: repeat-y;
@@ -341,7 +360,7 @@ article {
 }
 .panel-wrapper-footer {
   width: 100%;
-  max-width: 750px;
+  max-width: var(--maxw);
   height: 40px;
   background-image: url('~@/assets/discount-footer-bg.png');
   background-repeat: no-repeat;
@@ -354,7 +373,7 @@ article {
   margin-top: -2px;
 }
 .egg {
-  display: inline-block;
+  position: fixed;
   width: 0;
   height: 0;
 }
