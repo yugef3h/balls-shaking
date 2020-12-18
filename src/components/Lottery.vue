@@ -48,7 +48,8 @@ import {
   onBeforeUnmount,
   ref,
   reactive,
-  watchEffect
+  watchEffect,
+  watch
 } from 'vue'
 import { debounce } from 'lodash'
 import {
@@ -67,24 +68,13 @@ import {
   initCanvasSize,
   userSelectDisable,
   stopAnim,
-  ballRender
+  ballRender,
+  initCanvasBalls
 } from '@/config/utils.ts'
 import { egg1, egg2, egg3, egg4 } from '@/config/imgData'
 import { handleTryCatch } from '@/config/error'
 export default defineComponent({
   setup() {
-    const shakeId = ref<number>(0)
-    const bounceId = ref<number>(0)
-    const rotateId = ref<number>(0)
-
-    const o: {
-      canvas: HTMLCanvasElement | null
-      ctx: CanvasRenderingContext2D | null
-    } = reactive({
-      canvas: null,
-      ctx: null
-    })
-    const balls = reactive<Ball[]>([])
     /**
      * arr[0] 小球半径
      * arr[1] canvas#egg-wrapper 画布宽
@@ -93,8 +83,15 @@ export default defineComponent({
      * arr[4] canvas#result-window 画布高
      */
     const globalOptions = reactive<number[]>([40, 500, 320, 190, 110]),
+      /**
+       * 参数说明：
+       * 因为 canvas 的空间有限，假若 ballCount 和 ballRadius 数值都很大
+       * 依旧可能出现粘连和陷入墙里 （边界）的情况，所以 shakingOptions 参数请好好权衡。
+       * ballCount 球的数量很大时，ballRadius 半径适当缩小
+       * 当然假如 type = 1 非碰撞模式时，影响可以忽略
+       */
       shakingOptions = reactive({
-        ballCount: 8,
+        ballCount: 15,
         ballRadius: globalOptions[0],
         type: 1,
         speed: 4,
@@ -106,8 +103,30 @@ export default defineComponent({
         egg3,
         egg4,
         winEgg: null
+      }),
+      // 定时器组
+      shakeId = ref<number>(0),
+      bounceId = ref<number>(0),
+      rotateId = ref<number>(0),
+      // egg 画布及 result 画布资源
+      o: {
+        canvas: HTMLCanvasElement | null
+        ctx: CanvasRenderingContext2D | null
+        result: HTMLCanvasElement | null
+        context: CanvasRenderingContext2D | null
+      } = reactive({
+        canvas: null,
+        ctx: null,
+        result: null,
+        context: null
       })
-
+    // 小球资源
+    let balls = reactive<Ball[]>([])
+    // 控制结果：这里暂时控制小球的颜色
+    const luckyObj = reactive({
+      bgIndex: imgData['egg1']
+      // 其他参数可以用接口获取中奖编号，奖品，日期，小球颜色等
+    })
     // 摇摇乐 canvas main 主函数
     function shakingAnim({
       type = 'default',
@@ -115,18 +134,18 @@ export default defineComponent({
       ballRadius = 44,
       ballCount
     }: BallObject) {
-      o.canvas = getCanvasElementById('egg-wrapper')
-      o.ctx = getCanvasRenderingContext2D(o.canvas)
+      if (o.canvas === null) o.canvas = getCanvasElementById('egg-wrapper')
+      if (o.ctx === null) o.ctx = getCanvasRenderingContext2D(o.canvas)
+
       if (speed <= 4) speed = 4
-      speed = 1
       const ballColor = 'rgba(0,0,0,0)',
         cvw = o.canvas.width,
         cvh = o.canvas.height,
         _collideBool = type === 'collide' || type === 2,
         nodeList = getImgList(imgData)
-
       // 创建并过滤位置有误的小球，比如两个黏在一起的，属于碰撞模式优化...
       // 有时间优化：可配置具体颜色的个数
+      balls = []
       createBalls({
         balls,
         ballCount,
@@ -138,7 +157,6 @@ export default defineComponent({
         _collideBool,
         nodeList
       })
-
       function loop() {
         o.ctx && o.ctx.clearRect(0, 0, cvw, cvh)
         for (let i = 0; i < balls.length; i++) {
@@ -170,76 +188,87 @@ export default defineComponent({
       // const fps = 50
       // animTimer.value = setInterval(loop, 1000 / fps)
     }
-    // 离屏加载
+
+    // 初始化渲染 egg 画布绘制静态的 balls
+    function start() {
+      initCanvasBalls({ ...shakingOptions, imgData, o, balls })
+    }
+    // 停止所有动画
+    function getResult(id: number) {
+      stopAnim(id)
+      imgData.winEgg = null
+      setTimeout(() => {
+        imgData.winEgg = luckyObj.bgIndex
+      })
+    }
+    // 离屏加载资源并进行 result-window 窗口的初始化，传入事件等参数
     function handleLoad(event: Event, bounceId: number, index: string) {
-      if (index === 'winEgg')
+      if (index === 'winEgg') {
+        o.result = getCanvasElementById('result-window')
+        o.context = getCanvasRenderingContext2D(o.result)
         // result-window
         eggLoadedBouncingAnim({
           event,
+          o,
           tagName: 'result-window',
           bounceId,
-          radius: globalOptions[0]
+          radius: globalOptions[0],
+          endEvent: start
         })
-    }
-
-    function getResult(id: number) {
-      // 停止动画
-      stopAnim(id)
-      o.ctx &&
-        o.canvas &&
-        o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height)
-      o.canvas = o.ctx = null
-      imgData.winEgg = null
-      setTimeout(() => {
-        imgData.winEgg = imgData.egg1
-      })
-    }
-    /**
-     * 说明：
-     * 因为 canvas 的空间有限，假若 ballCount 和 ballRadius 数值都很大
-     * 依旧可能出现粘连和陷入墙里 （边界）的情况，所以 shakingOptions 参数请好好权衡。
-     * ballCount 球的数量很大时，ballRadius 半径适当缩小
-     * 当然假如 type = 1 非碰撞模式时，影响可以忽略
-     */
-    function start() {
-      shakingAnim(shakingOptions)
+      }
     }
 
     const changeCanvasSize = debounce(() => {
       updateCanvasRender(globalOptions)
-      if (shakeId.value) {
-        stopAnim(shakeId.value)
-        // 恢复
-        // shakingAnim(shakingOptions)
-      }
+      if (shakeId.value) stopAnim(shakeId.value)
       if (bounceId.value) stopAnim(bounceId.value)
     }, 1000)
 
     onMounted(async () => {
+      // 禁止移动端的右键菜单
       userSelectDisable()
+      // 初始化画布、小球等资源的尺寸
       const [err] = await handleTryCatch(initCanvasSize)(globalOptions)
       if (err) return console.log(err, 'err')
+      // 展示小球的静态图
       start()
-      window.addEventListener('resize', changeCanvasSize)
+      // 监听按钮
       rotateSwitchObserver({
         tagName: '.switch',
         rotateId: rotateId.value,
+        startEvent: () => {
+          shakingAnim(shakingOptions)
+          o.result &&
+            o.context?.clearRect(0, 0, o.result?.width, o.result?.height)
+        },
         // 归位后回调
-        callback: () => getResult(shakeId.value)
+        endEvent: () => getResult(shakeId.value)
       })
+      window.addEventListener('resize', changeCanvasSize)
     })
 
     onBeforeUnmount(() => {
       window.removeEventListener('resize', changeCanvasSize)
+      o.canvas = o.ctx = null
     })
 
+    watch(
+      () => luckyObj.bgIndex,
+      val => {
+        imgData.winEgg = val
+      }
+    )
+    // 响应式更新 ballRadius
     watchEffect(() => {
       shakingOptions.ballRadius = globalOptions[0]
     })
     return {
+      balls,
       imgData,
+      luckyObj,
       handleLoad,
       bounceId,
+      start,
       globalOptions,
       shakingOptions
     }

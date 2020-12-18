@@ -1,4 +1,3 @@
-import { debounce } from 'lodash'
 export const getCanvasElementById = (id: string): HTMLCanvasElement => {
   const canvas = document.getElementById(id)
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -123,8 +122,8 @@ export interface BallsObject {
   ballColor: string
   cvw: number
   cvh: number
-  speed: number
-  _collideBool: boolean
+  speed?: number
+  _collideBool?: boolean
   nodeList: Element[]
 }
 
@@ -137,30 +136,56 @@ export const createBalls = ({
   cvw,
   cvh,
   speed,
-  _collideBool,
+  _collideBool = false, // 是否是碰撞模式
   nodeList
 }: BallsObject) => {
-  let _ball, intersect
-  while (balls.length < ballCount) {
-    const x = xRandomInt(ballRadius, cvw - ballRadius)
-    const y = xRandomInt(ballRadius, cvh - ballRadius)
-    const vx = _collideBool ? 0 : randNum(3, speed)
-    const vy = _collideBool ? 0 : randNum(3, speed)
-    const bgIndex = randNum(0, nodeList.length - 1) // 挂载背景图片的 index
-    _ball = new Ball(x, y, vx, vy, ballRadius, ballColor, bgIndex)
-
-    intersect = false
-    for (const b of balls) {
-      if (dist(b, _ball) <= b.radius + _ball.radius) {
-        intersect = true
-        break
+  let _ball,
+    intersect,
+    count1 = 0,
+    count2 = 1,
+    flag = false
+  const gradient = Math.ceil(ballCount / 2)
+  switch (speed) {
+    case undefined: // 小球静态布局：从中散开
+      while (balls.length < ballCount) {
+        let part2: number
+        if (!flag && count2 < gradient) {
+          part2 = count2++
+          if (part2 === gradient - 1) flag = !flag
+        } else {
+          part2 = count2--
+        }
+        const part1 = count1 < ballCount ? count1++ : count1,
+          x = (cvw * part1) / 2 / ballCount + cvw / 4,
+          y = cvh - part2 - ballRadius,
+          bgIndex = randNum(0, nodeList.length - 1)
+        _ball = new Ball(x, y, 0, 0, ballRadius, ballColor, bgIndex)
+        balls.push(_ball)
       }
-    }
+      break
+    default:
+      // 动态
+      while (speed && balls.length < ballCount) {
+        const x = xRandomInt(ballRadius, cvw - ballRadius)
+        const y = xRandomInt(ballRadius, cvh - ballRadius)
+        const vx = _collideBool ? 0 : randNum(3, speed)
+        const vy = _collideBool ? 0 : randNum(3, speed)
+        const bgIndex = randNum(0, nodeList.length - 1) // 挂载背景图片的 index
+        _ball = new Ball(x, y, vx, vy, ballRadius, ballColor, bgIndex)
 
-    // 当前这个舍弃
-    if (intersect && _collideBool) continue
-    if (_collideBool) _ball.vx = _ball.vy = xRandomInt(0, 500) / 200
-    balls.push(_ball)
+        intersect = false
+        for (const b of balls) {
+          if (dist(b, _ball) <= b.radius + _ball.radius) {
+            intersect = true
+            break
+          }
+        }
+
+        // 当前这个舍弃
+        if (intersect && _collideBool) continue
+        if (_collideBool) _ball.vx = _ball.vy = xRandomInt(0, 500) / 200
+        balls.push(_ball)
+      }
   }
 }
 
@@ -204,7 +229,10 @@ export const exchangeRelativeVelocity = (
   anotherBall.vy += dp * ny
 }
 
-export const updateCanvasSize = (tagName: string[], globalOptions: any) => {
+export const updateCanvasSize = (
+  tagName: string[],
+  globalOptions: number[]
+) => {
   const clientWidth = document.body.clientWidth
   tagName.forEach(tag => {
     let canvas: HTMLCanvasElement | null = getCanvasElementById(tag),
@@ -237,11 +265,11 @@ export const updateCanvasSize = (tagName: string[], globalOptions: any) => {
   if (clientWidth < 760) globalOptions[0] = Math.floor(globalOptions[0] / 1.5)
 }
 
-export const updateCanvasRender = (globalOptions: any): void => {
+export const updateCanvasRender = (globalOptions: number[]): void => {
   updateCanvasSize(['egg-wrapper', 'result-window'], globalOptions)
 }
 
-export const initCanvasSize = (globalOptions: any): Promise<boolean> => {
+export const initCanvasSize = (globalOptions: number[]): Promise<boolean> => {
   return new Promise(resolve => {
     setTimeout(() => {
       updateCanvasSize(['egg-wrapper', 'result-window'], globalOptions)
@@ -329,7 +357,8 @@ export class LongTap {
 export interface SwitchObj {
   tagName: string
   rotateId: number | null
-  callback: Callback
+  endEvent: Callback
+  startEvent?: Callback
   // counterClockwiseSpeed 多少倍慢速，有时间优化
 }
 
@@ -340,7 +369,7 @@ const formatDegToNumber = (switchObj: HTMLElement | null): number => {
 }
 
 // 逆时针恢复
-export const restoreSwitch = ({ tagName, rotateId, callback }: SwitchObj) => {
+export const restoreSwitch = ({ tagName, rotateId, endEvent }: SwitchObj) => {
   let markObj: HTMLElement | null = getHTMLElement('.mark')
   markObj.style.display = 'block'
   let switchObj: HTMLElement | null = getHTMLElement(tagName)
@@ -354,7 +383,7 @@ export const restoreSwitch = ({ tagName, rotateId, callback }: SwitchObj) => {
     if (deg <= 0) {
       switchObj && (switchObj.style.transform = 'rotate(0deg)')
       cancelAnimationFrame(rotateId)
-      callback()
+      endEvent()
       markObj && (markObj.style.display = 'none')
       // 回收内存
       markObj = switchObj = rotateId = null
@@ -366,7 +395,8 @@ export const restoreSwitch = ({ tagName, rotateId, callback }: SwitchObj) => {
 export const rotateSwitchObserver = ({
   tagName,
   rotateId,
-  callback
+  startEvent,
+  endEvent
 }: SwitchObj) => {
   const switchObj: HTMLElement | null = getHTMLElement(tagName)
   function rotate() {
@@ -382,6 +412,7 @@ export const rotateSwitchObserver = ({
   app.longTap(
     () => {
       rotate()
+      startEvent && startEvent()
     },
     () => {
       rotateId && cancelAnimationFrame(rotateId)
@@ -389,7 +420,7 @@ export const rotateSwitchObserver = ({
       rotateId = null
       // 逆时针恢复
       const deg: number = formatDegToNumber(switchObj)
-      if (deg > 0) restoreSwitch({ tagName, rotateId, callback })
+      if (deg > 0) restoreSwitch({ tagName, rotateId, endEvent })
     }
   )
 }
@@ -443,24 +474,32 @@ export const bouncingAnim = (bounceId: number) => {
   img.src = require(`@/assets/egg-1.png`)
 }
 
-export interface BounceObj {
+export interface Env {
+  o: any
+}
+
+export interface BounceObj extends Env {
   event: Event
   tagName: string
   bounceId: number
   radius: number
+  endEvent?: Callback
 }
 
+// fall 弹性落球
 export const eggLoadedBouncingAnim = ({
   event,
-  tagName,
+  o,
   bounceId,
-  radius
+  radius,
+  tagName,
+  endEvent
 }: BounceObj) => {
-  let canvas: HTMLCanvasElement | null = getCanvasElementById(tagName),
-    ctx: CanvasRenderingContext2D | null = getCanvasRenderingContext2D(canvas)
+  if (o.result === null) o.result = getCanvasElementById(tagName)
+  if (o.context === null) o.context = getCanvasRenderingContext2D(o.result)
   const img = event.target as CanvasImageSource
-  const W = canvas.width,
-    H = canvas.height,
+  const W = o.result.width,
+    H = o.result.height,
     gravity = 0.2, // 重力
     bounceFactor = 0.7, // 弹力
     ball = {
@@ -472,11 +511,10 @@ export const eggLoadedBouncingAnim = ({
       draw: drawCircle
     }
   function update() {
-    if (!ctx) return
-    ctx.clearRect(0, 0, W, H)
-    ball.draw(ctx, ball.x, ball.y, radius, 'rgba(0,0,0,0)')
+    o.context.clearRect(0, 0, W, H)
+    ball.draw(o.context, ball.x, ball.y, radius, 'rgba(0,0,0,0)')
     img &&
-      ctx.drawImage(
+      o.context.drawImage(
         img,
         ball.x - radius,
         ball.y - radius,
@@ -495,7 +533,7 @@ export const eggLoadedBouncingAnim = ({
     bounceId = requestAnimationFrame(update)
     if (ball.vy === 0) {
       cancelAnimationFrame(bounceId)
-      canvas = ctx = null
+      endEvent && endEvent()
     }
   }
   update()
@@ -527,4 +565,48 @@ export const ballRender = ({ ctx, cvw, cvh, ball, nodeList }: RenderObj) => {
   ball.x += ball.vx
   ball.y += ball.vy
   ball.update(cvw, cvh)
+}
+
+export interface InitBalls extends BallObject, Env {
+  balls: Ball[]
+  imgData: any
+  tagName: string
+}
+
+// 没有速度 speed
+export const initCanvasBalls = ({
+  ballRadius = 44,
+  ballCount,
+  o,
+  balls,
+  tagName,
+  imgData
+}: InitBalls) => {
+  if (o.canvas === null) o.canvas = getCanvasElementById(tagName)
+  if (o.ctx === null) o.ctx = getCanvasRenderingContext2D(o.canvas)
+  const ballColor = 'rgba(0,0,0,0)',
+    cvw = o.canvas.width,
+    cvh = o.canvas.height,
+    nodeList = getImgList(imgData)
+
+  // 创建并过滤位置有误的小球，比如两个黏在一起的，属于碰撞模式优化...
+  // 有时间优化：可配置具体颜色的个数
+  balls = []
+  createBalls({
+    balls,
+    ballCount,
+    ballRadius,
+    ballColor,
+    cvw,
+    cvh,
+    nodeList
+  })
+
+  o.ctx && o.ctx.clearRect(0, 0, cvw, cvh)
+  for (let i = 0; i < balls.length; i++) {
+    const ball = balls[i]
+    // 这里有时间优化，假如有重叠的话可以不绘制，反正你看不出来...
+    // 另外：例如 stroke()、fill、drawImage 等 API 尽量不要分次绘制。
+    o.ctx && ballRender({ ctx: o.ctx, cvw, cvh, ball, nodeList })
+  }
 }
