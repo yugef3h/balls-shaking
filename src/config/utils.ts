@@ -47,21 +47,14 @@ export const drawCircle = (
 }
 
 export class Ball {
-  x: number // 圆心
-  y: number
-  vx: number
-  vy: number
-  radius: number
-  color: string
-  bgIndex: number
   constructor(
-    x: number,
-    y: number,
-    vx: number,
-    vy: number,
-    radius: number,
-    color: string,
-    bgIndex: number
+    public x: number, // 圆心
+    public y: number,
+    public vx: number,
+    public vy: number,
+    public radius: number,
+    public color: string,
+    public bgIndex: number
   ) {
     this.x = x
     this.y = y
