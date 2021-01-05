@@ -384,7 +384,7 @@ export const restoreSwitch = ({ tagName, rotateId, endEvent }: SwitchObj) => {
       switchObj && (switchObj.style.transform = 'rotate(0deg)')
       cancelAnimationFrame(rotateId)
       endEvent()
-      markObj && (markObj.style.display = 'none')
+      markObj!.style.display = 'none'
       // 回收内存
       markObj = switchObj = rotateId = null
     }
@@ -403,7 +403,7 @@ export const rotateSwitchObserver = ({
     let deg: number = formatDegToNumber(switchObj)
     // 控制速度
     deg++
-    switchObj && (switchObj.style.transform = formatDeg(deg))
+    switchObj!.style.transform = formatDeg(deg)
     rotateId = requestAnimationFrame(rotate)
     // 顺时针暂时先一圈吧，有时间优化
     if (deg >= 359) cancelAnimationFrame(rotateId)
